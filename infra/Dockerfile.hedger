@@ -1,0 +1,34 @@
+# 1) Слой deps для hedger: ставим только его зависимости
+FROM node:20-alpine AS deps
+WORKDIR /app
+
+# pnpm
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+# Копируем файлы, достаточные для установки deps ПАКЕТА hedger
+COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
+COPY apps/hedger/package.json apps/hedger/package.json
+
+# Устанавливаем deps только для hedger (учитывая воркспейс)
+RUN pnpm --filter ./apps/hedger... install --frozen-lockfile
+
+# 2) Слой сборки: добавляем весь код и билдим
+FROM deps AS build
+# Копируем остальной код (исходники)
+COPY . .
+RUN pnpm --filter hedger build
+
+# 3) Рантайм: только дистрибутив + прод-зависимости
+FROM node:20-alpine
+WORKDIR /app
+ENV NODE_ENV=production
+
+# Кладём артефакты
+COPY --from=build /app/apps/hedger/dist ./dist
+COPY apps/hedger/package.json ./package.json
+
+# Ставим прод-зависимости (если нужны для запуска)
+RUN corepack enable && corepack prepare pnpm@latest --activate \
+ && pnpm i --prod --ignore-scripts
+
+CMD ["node", "dist/index.js"]

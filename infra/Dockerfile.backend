@@ -1,0 +1,34 @@
+# --- deps: ставим зависимости ТОЛЬКО для пакета backend-ts
+FROM node:20-alpine AS deps
+WORKDIR /app
+
+# pnpm
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+# Копируем минимально достаточные файлы: lockfile, workspace и package.json пакета
+COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
+COPY apps/backend-ts/package.json apps/backend-ts/package.json
+
+# Устанавливаем deps именно для backend-ts (с учётом воркспейса)
+RUN pnpm --filter ./apps/backend-ts... install --frozen-lockfile
+
+# --- build: добавляем весь код и билдим пакет
+FROM deps AS build
+COPY . .
+RUN pnpm --filter backend-ts build
+
+# --- runtime: только артефакты и прод-зависимости
+FROM node:20-alpine
+WORKDIR /app
+ENV NODE_ENV=production
+
+# Копируем сборку и package.json пакета
+COPY --from=build /app/apps/backend-ts/dist ./dist
+COPY apps/backend-ts/package.json ./package.json
+
+# Ставим только prod-зависимости (если они требуются на рантайме)
+RUN corepack enable && corepack prepare pnpm@latest --activate \
+  && pnpm i --prod --ignore-scripts
+
+EXPOSE 3000
+CMD ["node", "dist/server.js"]
