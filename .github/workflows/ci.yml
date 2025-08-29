@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       GRAPH_API_KEY: ${{ secrets.GRAPH_API_KEY }}
-      INDEXER_URL:  ${{ secrets.INDEXER_URL }}
+      INDEXER_URL:  "http://localhost:8080"
 
     steps:
       - name: Checkout
