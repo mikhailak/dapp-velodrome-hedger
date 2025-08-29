@@ -12,6 +12,9 @@ concurrency:
 jobs:
   build-test:
     runs-on: ubuntu-latest
+    env:
+      GRAPH_API_KEY: ${{ secrets.GRAPH_API_KEY }}
+      INDEXER_URL:  ${{ secrets.INDEXER_URL }}
 
     steps:
       - name: Checkout
