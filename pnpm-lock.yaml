@@ -87,6 +87,9 @@ importers:
       '@typescript-eslint/parser':
         specifier: ^8.41.0
         version: 8.41.0(eslint@9.34.0)(typescript@5.9.2)
+      '@vitest/coverage-v8':
+        specifier: ^3.2.4
+        version: 3.2.4(vitest@3.2.4(@types/node@24.3.0)(tsx@4.20.5))
       eslint:
         specifier: ^9.34.0
         version: 9.34.0
