@@ -1,4 +1,5 @@
-import Fastify from "fastify";
+// apps/backend-ts/src/server.ts
+import Fastify, { type FastifyError, type FastifyRequest, type FastifyReply } from "fastify";
 import { loadConfig } from "./config";
 import { getLoggerOptions } from "./logger";
 import { registerMetaRoutes } from "./routes/meta";
@@ -6,11 +7,10 @@ import { registerPoolRoutes } from "./routes/pools";
 
 export function buildServer() {
   const app = Fastify({
-    logger: getLoggerOptions(),   // <-- теперь конфиг-объект
+    logger: getLoggerOptions(),
     disableRequestLogging: true,
   });
 
-  // Простое http-логирование (без getResponseTime в v5)
   app.addHook("onResponse", (req, reply, done) => {
     const { method, url } = req;
     const status = reply.statusCode;
@@ -23,9 +23,9 @@ export function buildServer() {
   app.register(registerMetaRoutes);
   app.register(registerPoolRoutes);
 
-  app.setErrorHandler((err, _req, reply) => {
+  app.setErrorHandler((err: FastifyError & { statusCode?: number }, _req: FastifyRequest, reply: FastifyReply) => {
     app.log.error({ err }, "unhandled");
-    const status = (err as any).statusCode ?? 500;
+    const status = err.statusCode ?? 500;
     reply.code(status).send({
       error: status === 500 ? "internal_error" : "bad_request",
       message: status === 500 ? "Internal Server Error" : err.message,
@@ -42,7 +42,6 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     .listen({ port: cfg.PORT, host: "0.0.0.0" })
     .then(() => app.log.info(`listening on :${cfg.PORT}`))
     .catch((e) => {
-      // тут можно просто console.error, чтобы не тащить pino-инстанс
       console.error(e);
       process.exit(1);
     });
