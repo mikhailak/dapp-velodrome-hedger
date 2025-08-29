@@ -44,7 +44,14 @@ jobs:
 
       # 4) Установка зависимостей воркспейса
       - name: Install deps (workspace)
-        run: pnpm -w install --frozen-lockfile
+        run: pnpm -r install --frozen-lockfile
+      
+        # (временный шаг для проверки, можно удалить после успешного прогона)
+      - name: Debug bins
+        run: |
+          pnpm -r exec node -v
+          pnpm -r exec pnpm -v
+          pnpm -r exec ls -la node_modules/.bin || true
 
       - name: Lint
         run: pnpm -w run lint
