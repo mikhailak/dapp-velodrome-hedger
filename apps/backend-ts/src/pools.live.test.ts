@@ -2,13 +2,26 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { buildServer } from "./server";
 
+type GraphPool = {
+  id: string;
+  totalValueLockedUSD: string;
+  volumeUSD: string;
+  feesUSD: string;
+  totalValueLockedToken0: string;
+  totalValueLockedToken1: string;
+  feeTier: string;
+  token0: { id: string; symbol: string; name: string; decimals: string };
+  token1: { id: string; symbol: string; name: string; decimals: string };
+};
+
+type GraphData = { data: { pool: GraphPool } };
+type MockResponse = { ok: true; json: () => Promise<GraphData> };
+
 beforeEach(() => {
-  // ✅ выставляем фиктивные переменные окружения, чтобы getGraphEndpoint() не падал
   process.env.GRAPH_API_KEY = "test-key";
   process.env.GRAPH_SUBGRAPH_ID = "test-subgraph";
 
-  // ✅ мок сети: graphQuery -> fetch(...) вернёт предсказуемый ответ
-  vi.stubGlobal("fetch", vi.fn(async () => {
+  vi.stubGlobal("fetch", vi.fn(async (): Promise<MockResponse> => {
     return {
       ok: true,
       json: async () => ({
@@ -26,7 +39,7 @@ beforeEach(() => {
           },
         },
       }),
-    } as any;
+    };
   }));
 });
 
