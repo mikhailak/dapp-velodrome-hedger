@@ -1,5 +1,3 @@
-// Конкретный запрос под схему:
-// id, token0/1, TVL (в USD и по токенам), объем, комиссии, feeTier
 export const POOL_QUERY = /* GraphQL */ `
   query PoolById($id: ID!) {
     pool(id: $id) {
