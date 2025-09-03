@@ -6,11 +6,7 @@ settings:
 
 importers:
 
-  .:
-    dependencies:
-      lru-cache:
-        specifier: ^11.1.0
-        version: 11.1.0
+  .: {}
 
   apps/backend-ts:
     dependencies:
