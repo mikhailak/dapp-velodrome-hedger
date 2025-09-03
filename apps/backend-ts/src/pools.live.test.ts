@@ -1,7 +1,7 @@
 // apps/backend-ts/src/pools.live.test.ts
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 
-// ── Типы ответов GraphQL, которые мы возвращаем из мока ───────────────────────
+// ── Типы ответов GraphQL, которые возвращаем из мока ─────────────────────────
 type Token = { id: string; symbol: string; name: string; decimals: string };
 
 type PoolGql = {
@@ -27,10 +27,11 @@ type DayPoint = {
 };
 
 type PoolDayByIdRes = { poolDayData: DayPoint };
-type PoolDayLastRes = { pool: { id: string; dayData: DayPoint[] } };
+// ⬇️ новая форма ответа для fallback: коллекция poolDayDatas
+type PoolDayLastRes = { poolDayDatas: DayPoint[] };
 
 // ── Мокаем модуль graph ДО импорта сервера ────────────────────────────────────
-//  Возвращаем разные структуры, основываясь на содержимом строки query.
+// ВАЖНО: путь из теста до src/graph.ts — "./graph" (т.е. тот же каталог "src")
 vi.mock("./graph", async () => {
   type GraphQuery = <T>(
     query: string,
@@ -67,42 +68,42 @@ vi.mock("./graph", async () => {
           date: 1725148800,
           tvlUSD: "12000.00",
           volumeUSD: "2000.00",
-          feesUSD: "6.00", // apr24h = 6/12000 = 0.0005 → 0.05%, aprYear ≈ 18.25%
+          feesUSD: "6.00", // → APR24h = 6/12000=0.0005 → 0.05%, год ≈18.25%
         },
       };
       return resp as unknown as T;
     }
 
     if (query.includes("query PoolDayLast")) {
+      // ⬇️ ВОТ ЗДЕСЬ главная правка: возвращаем poolDayDatas (а не pool{dayData})
       const resp: PoolDayLastRes = {
-        pool: {
-          id: "0xpool",
-          dayData: [
-            {
-              id: "0xpool-20240902",
-              date: 1725235200,
-              tvlUSD: "12345.67",
-              volumeUSD: "1000.00",
-              feesUSD: "3.00", // apr24h ≈ 0.0243%, aprYear ≈ 8.86%
-            },
-          ],
-        },
+        poolDayDatas: [
+          {
+            id: "0xpool-20240902",
+            date: 1725235200,
+            tvlUSD: "12345.67",
+            volumeUSD: "1000.00",
+            feesUSD: "3.00", // → APR24h ≈ 0.0243%, год ≈ 8.86%
+          },
+        ],
       };
       return resp as unknown as T;
     }
 
     // fallback — не должен понадобиться
-    const empty: PoolByIdRes = { pool: { 
-      id: "0xpool",
-      totalValueLockedUSD: "0",
-      volumeUSD: "0",
-      feesUSD: "0",
-      totalValueLockedToken0: "0",
-      totalValueLockedToken1: "0",
-      feeTier: "0",
-      token0: { id: "0x0", symbol: "X", name: "X", decimals: "18" },
-      token1: { id: "0x0", symbol: "Y", name: "Y", decimals: "18" },
-    } };
+    const empty: PoolByIdRes = {
+      pool: {
+        id: "0xpool",
+        totalValueLockedUSD: "0",
+        volumeUSD: "0",
+        feesUSD: "0",
+        totalValueLockedToken0: "0",
+        totalValueLockedToken1: "0",
+        feeTier: "0",
+        token0: { id: "0x0", symbol: "X", name: "X", decimals: "18" },
+        token1: { id: "0x0", symbol: "Y", name: "Y", decimals: "18" },
+      },
+    };
     return empty as unknown as T;
   };
 
