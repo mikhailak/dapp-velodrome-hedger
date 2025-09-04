@@ -1,22 +1,27 @@
 import { LRUCache } from "lru-cache";
 
-/** Значения кэшируем как объект-обёртку, чтобы удовлетворить constraint библиотеки */
-type Box = { v: unknown };
-
-export const cache = new LRUCache<string, Box>({
+// В v11 тип значения должен быть объектом (V extends {}).
+// Нам нужно кэшировать любые типы (включая числа/строки).
+// Поэтому используем `any` ТОЛЬКО внутри кеша и отдаем типизированно через memo<T>.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const cache = new LRUCache<string, any>({
   max: 500,
-  ttl: 30_000, // 30s
+  ttl: 30_000, // default TTL для записей (перекрываем в set)
 });
 
+/**
+ * Универсальная мемоизация по ключу с TTL.
+ * Тип T сохраняется снаружи, внутри кеша — `any`, чтобы не упереться в ограничение V extends {}.
+ */
 export async function memo<T>(
   key: string,
-  ttl: number,
-  fn: () => Promise<T>
+  calc: () => Promise<T>,
+  ttlMs: number
 ): Promise<T> {
-  const hit = cache.get(key);
-  if (hit) return hit.v as T;
+  const hit = cache.get(key) as T | undefined;
+  if (hit !== undefined) return hit;
 
-  const res = await fn();
-  cache.set(key, { v: res }, { ttl });
-  return res;
+  const val = await calc();
+  cache.set(key, val, { ttl: ttlMs });
+  return val;
 }

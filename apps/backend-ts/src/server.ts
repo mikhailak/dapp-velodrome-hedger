@@ -1,9 +1,8 @@
-// apps/backend-ts/src/server.ts
-import Fastify, { type FastifyError, type FastifyRequest, type FastifyReply } from "fastify";
-import { loadConfig } from "./config";
+import Fastify, { FastifyError } from "fastify";
 import { getLoggerOptions } from "./logger";
-import { registerMetaRoutes } from "./routes/meta";
-import { registerPoolRoutes } from "./routes/pools";
+import metaRoutes from "./routes/meta";
+import poolRoutes from "./routes/pools";
+import poolDaysRoutes from "./routes/pools.days";
 
 export function buildServer() {
   const app = Fastify({
@@ -11,6 +10,7 @@ export function buildServer() {
     disableRequestLogging: true,
   });
 
+  // Компактный http-лог
   app.addHook("onResponse", (req, reply, done) => {
     const { method, url } = req;
     const status = reply.statusCode;
@@ -18,31 +18,32 @@ export function buildServer() {
     done();
   });
 
-  app.get("/healthz", async () => ({ ok: true }));
+  // Регистрация роутов (ВАЖНО: default-экспорт функций-плагинов)
+  app.register(metaRoutes);
+  app.register(poolRoutes);
+  app.register(poolDaysRoutes);
 
-  app.register(registerMetaRoutes);
-  app.register(registerPoolRoutes);
-
-  app.setErrorHandler((err: FastifyError & { statusCode?: number }, _req: FastifyRequest, reply: FastifyReply) => {
-    app.log.error({ err }, "unhandled");
+  // Единый обработчик ошибок
+  app.setErrorHandler((err: FastifyError & { statusCode?: number }, _req, reply) => {
     const status = err.statusCode ?? 500;
+    app.log.error({ err }, "unhandled");
     reply.code(status).send({
-      error: status === 500 ? "internal_error" : "bad_request",
-      message: status === 500 ? "Internal Server Error" : err.message,
+      error: status === 400 ? "bad_request" : "internal_error",
+      message: err.message,
     });
   });
 
   return app;
 }
 
+// Режим standalone
 if (import.meta.url === `file://${process.argv[1]}`) {
-  const cfg = loadConfig();
   const app = buildServer();
-  app
-    .listen({ port: cfg.PORT, host: "0.0.0.0" })
-    .then(() => app.log.info(`listening on :${cfg.PORT}`))
+  const port = Number(process.env.PORT ?? 3000);
+  app.listen({ host: "0.0.0.0", port })
+    .then(() => app.log.info(`listening on :${port}`))
     .catch((e) => {
-      console.error(e);
+      app.log.error(e);
       process.exit(1);
     });
 }

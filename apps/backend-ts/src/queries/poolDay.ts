@@ -34,3 +34,21 @@ export const POOL_DAY_LAST_QUERY = /* GraphQL */ `
     }
   }
 `;
+
+export const POOL_DAYS_BY_POOL_QUERY = /* GraphQL */ `
+  query PoolDaysByPool($poolId: String!, $first: Int!, $skip: Int!) {
+    poolDayDatas(
+      first: $first
+      skip: $skip
+      orderBy: date
+      orderDirection: desc
+      where: { pool: $poolId }
+    ) {
+      id
+      date
+      tvlUSD
+      volumeUSD
+      feesUSD
+    }
+  }
+`;
