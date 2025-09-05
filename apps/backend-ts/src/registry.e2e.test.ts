@@ -2,6 +2,11 @@
 import { beforeAll, afterAll, describe, it, expect } from "vitest";
 import { buildServer } from "./server";
 
+// Запускаем e2e только когда есть RPC и адрес реестра И это не CI.
+const hasChainEnv = Boolean(process.env.RPC_URL) && Boolean(process.env.REGISTRY_ADDRESS);
+const runE2E = process.env.CI !== "true" && hasChainEnv;
+const e2e = runE2E ? describe : describe.skip;
+
 type RegistryGetResponse = {
   key: string;
   keyHash: `0x${string}`;
@@ -31,7 +36,7 @@ function randInt(min = 1, max = 9999) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-describe("registry e2e", () => {
+e2e("registry e2e", () => {
   const key = "target_leverage";
   let app: ReturnType<typeof buildServer>;
 
