@@ -4,6 +4,7 @@ import metaRoutes from "./routes/meta";
 import poolRoutes from "./routes/pools";
 import poolDaysRoutes from "./routes/pools.days";
 import { registerRegistryRoutes } from "./routes/registry";
+import poolsMetricsRoutes from "./routes/pools.metrics";
 
 
 export function buildServer() {
@@ -25,6 +26,7 @@ export function buildServer() {
   app.register(poolRoutes);
   app.register(poolDaysRoutes);
   app.register(registerRegistryRoutes);
+  app.register(poolsMetricsRoutes);
 
   app.ready().then(() => {
     app.log.info(app.printRoutes());
