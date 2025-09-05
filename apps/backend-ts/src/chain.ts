@@ -1,4 +1,4 @@
-import { createPublicClient, createWalletClient, http, parseAbi } from "viem";
+import { createPublicClient, createWalletClient, http } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { anvil } from "viem/chains";
 import { RegistryAbi } from "./abi/Registry";

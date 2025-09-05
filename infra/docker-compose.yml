@@ -1,8 +1,16 @@
+version: "3.9"
+
 services:
   anvil:
     image: ghcr.io/foundry-rs/foundry:latest
     command: anvil --host 0.0.0.0 --port 8545
-    ports: ["8545:8545"]
+    ports:
+      - "8545:8545"
+    healthcheck:
+      test: ["CMD", "cast", "block", "--rpc-url", "http://localhost:8545", "latest"]
+      interval: 2s
+      timeout: 2s
+      retries: 10
 
   backend:
     build:
@@ -11,20 +19,30 @@ services:
     env_file:
       - ../.env
     environment:
+      # внутри сети compose имя сервиса = hostname
       RPC_URL: http://anvil:8545
-      WRITE_DRY_RUN: "true"
-    depends_on: [anvil]   
+      WRITE_DRY_RUN: "true"   # можно выключить для реальной записи
+      PORT: "3000"
+      NODE_ENV: development
+    depends_on:
+      anvil:
+        condition: service_healthy
     ports:
       - "3000:3000"
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/healthz"]
+      interval: 3s
+      timeout: 2s
+      retries: 15
 
   hedger:
     build:
       context: ..
-    # если вы уже переделали Dockerfile.hedger на deps→build→runtime — оставляем как есть:
       dockerfile: infra/Dockerfile.hedger
     env_file:
       - ../.env
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     restart: unless-stopped

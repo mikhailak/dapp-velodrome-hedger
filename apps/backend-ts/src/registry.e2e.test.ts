@@ -2,6 +2,30 @@
 import { beforeAll, afterAll, describe, it, expect } from "vitest";
 import { buildServer } from "./server";
 
+type RegistryGetResponse = {
+  key: string;
+  keyHash: `0x${string}`;
+  value: string;
+};
+
+type RegistryPostDryRun = {
+  dryRun: true;
+  key: string;
+  value: number;
+  wouldCall: {
+    functionName: string;
+    args: [`0x${string}`, string | number | bigint];
+  };
+};
+
+type RegistryPostReal = {
+  tx: `0x${string}`;
+  key: string;
+  value: number;
+};
+
+type RegistryPostResponse = RegistryPostDryRun | RegistryPostReal;
+
 // helper: random int for "real write" теста
 function randInt(min = 1, max = 9999) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -12,7 +36,7 @@ describe("registry e2e", () => {
   let app: ReturnType<typeof buildServer>;
 
   beforeAll(async () => {
-    // ВАЖНО: в этих тестах мы используем текущее .env (анвил/адрес/и т.д.)
+    // используем текущее .env (anvil/адрес/и т.д.)
     app = buildServer();
     await app.ready();
   });
@@ -25,7 +49,7 @@ describe("registry e2e", () => {
     // зафиксируем текущий value
     const beforeRes = await app.inject({ method: "GET", url: `/registry/${key}` });
     expect(beforeRes.statusCode).toBe(200);
-    const before = beforeRes.json() as { value: string };
+    const before = beforeRes.json() as RegistryGetResponse;
     const oldValue = before.value;
 
     // имитируем запись
@@ -36,22 +60,29 @@ describe("registry e2e", () => {
       headers: { "content-type": "application/json" },
     });
 
-    // если в окружении включён WRITE_DRY_RUN=true, то ожидаем dryRun-ответ
-    // если нет — этот тест всё равно пройдёт, просто не будет поля dryRun
     expect(postRes.statusCode).toBe(200);
-    const postBody = postRes.json() as any;
+    const postBody = postRes.json() as RegistryPostResponse;
 
     // допускаем оба варианта, но если dry-run — проверяем форму
     if (String(process.env.WRITE_DRY_RUN ?? "").toLowerCase() === "true") {
-      expect(postBody).toHaveProperty("dryRun", true);
-      expect(postBody).toHaveProperty("key", key);
-      expect(postBody).toHaveProperty("value", 123);
+      // type guard на dry-run
+      const isDryRun =
+        typeof (postBody as RegistryPostDryRun).dryRun === "boolean" &&
+        (postBody as RegistryPostDryRun).dryRun === true;
+
+      expect(isDryRun).toBe(true);
+
+      const dry = postBody as RegistryPostDryRun;
+      expect(dry.key).toBe(key);
+      expect(dry.value).toBe(123);
+      expect(dry.wouldCall.functionName).toBe("setParam");
+      expect(Array.isArray(dry.wouldCall.args)).toBe(true);
     }
 
     // GET не должен измениться в dry-run режиме
     const afterRes = await app.inject({ method: "GET", url: `/registry/${key}` });
     expect(afterRes.statusCode).toBe(200);
-    const after = afterRes.json() as { value: string };
+    const after = afterRes.json() as RegistryGetResponse;
 
     if (String(process.env.WRITE_DRY_RUN ?? "").toLowerCase() === "true") {
       expect(after.value).toBe(oldValue);
@@ -65,9 +96,9 @@ describe("registry e2e", () => {
       return expect(true).toBe(true);
     }
 
-    // тут предполагается, что:
+    // тут предполагается:
     // 1) anvil запущен
-    // 2) контракт Registry задеплоен и адрес прописан в .env (REGISTRY_ADDRESS)
+    // 2) Registry задеплоен и REGISTRY_ADDRESS задан
     // 3) WRITE_DRY_RUN=false
     const newValue = randInt();
 
@@ -78,16 +109,24 @@ describe("registry e2e", () => {
       headers: { "content-type": "application/json" },
     });
     expect(postRes.statusCode).toBe(200);
-    const body = postRes.json() as any;
-    // ожидаем наличие tx хэша (в нормальном режиме)
+
+    const body = postRes.json() as RegistryPostResponse;
+
+    // ожидаем реальную запись
     expect(String(process.env.WRITE_DRY_RUN ?? "").toLowerCase()).toBe("false");
-    expect(body).toHaveProperty("tx");
-    expect(typeof body.tx).toBe("string");
+    // type guard на real
+    const isReal = typeof (body as RegistryPostReal).tx === "string";
+    expect(isReal).toBe(true);
+
+    const real = body as RegistryPostReal;
+    expect(real.key).toBe(key);
+    expect(real.value).toBe(newValue);
+    expect(real.tx).toMatch(/^0x[0-9a-fA-F]{64}$/);
 
     // читаем
     const getRes = await app.inject({ method: "GET", url: `/registry/${key}` });
     expect(getRes.statusCode).toBe(200);
-    const getBody = getRes.json() as { value: string };
+    const getBody = getRes.json() as RegistryGetResponse;
     expect(Number(getBody.value)).toBe(newValue);
   });
 });
