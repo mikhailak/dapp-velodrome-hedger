@@ -3,6 +3,8 @@ import { getLoggerOptions } from "./logger";
 import metaRoutes from "./routes/meta";
 import poolRoutes from "./routes/pools";
 import poolDaysRoutes from "./routes/pools.days";
+import { registerRegistryRoutes } from "./routes/registry";
+
 
 export function buildServer() {
   const app = Fastify({
@@ -22,6 +24,12 @@ export function buildServer() {
   app.register(metaRoutes);
   app.register(poolRoutes);
   app.register(poolDaysRoutes);
+  app.register(registerRegistryRoutes);
+
+  app.ready().then(() => {
+    app.log.info(app.printRoutes());
+  });
+  
 
   // Единый обработчик ошибок
   app.setErrorHandler((err: FastifyError & { statusCode?: number }, _req, reply) => {
@@ -47,3 +55,4 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       process.exit(1);
     });
 }
+
